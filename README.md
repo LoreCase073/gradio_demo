@@ -52,7 +52,7 @@ To use this project, follow these steps:
 Clone the repository (TODO: add the final version to be available):
 
 ```bash
-git clone https://github.com/LoreCase073/lvm_ad
+https://github.com/LoreCase073/gradio_demo
 ```
 
 After creating the Conda environment as specified above, you can start the demo using the following command:
