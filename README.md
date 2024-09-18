@@ -1,4 +1,4 @@
-# \[FalcoII\] Large-Vision Models research (TBF, still a first version)
+# \[FalcoII\] Large-Vision Models research
 
 ## Description
 
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 To use this project, follow these steps:
 
-Clone the repository (TODO: add the final version to be available):
+Clone the repository:
 
 ```bash
 https://github.com/LoreCase073/gradio_demo
