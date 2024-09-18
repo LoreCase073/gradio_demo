@@ -38,6 +38,12 @@ To install the requirements, activate the conda environment:
 conda activate myenv
 ```
 
+Clone the repository:
+
+```bash
+git clone https://github.com/LoreCase073/gradio_demo
+```
+
 and install all the packages listed in the requirements.txt file by running:
 
 ```
@@ -46,14 +52,6 @@ pip install -r requirements.txt
 
 
 ## Usage
-
-To use this project, follow these steps:
-
-Clone the repository:
-
-```bash
-https://github.com/LoreCase073/gradio_demo
-```
 
 After creating the Conda environment as specified above, you can start the demo using the following command:
 
