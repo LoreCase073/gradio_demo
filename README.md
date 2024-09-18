@@ -41,7 +41,7 @@ conda activate myenv
 Clone the repository:
 
 ```bash
-git clone https://github.com/LoreCase073/gradio_demo
+git clone https://github.com/LoreCase073/gradio_demo.git
 ```
 
 and install all the packages listed in the requirements.txt file by running:
