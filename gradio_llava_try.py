@@ -4,6 +4,7 @@ from methods.summarizer import Summarizer
 import subprocess
 import os
 import argparse
+import openai
 
 # Definition of some parameters that are required for the inference
 method_name = 'llava_next_video'
@@ -14,6 +15,7 @@ video_folder = ''
 # Creation of the model and summarizer objects
 model = LlavaNextVideo(model_type=method_name, device=device_id, model_savepath=None, output_path=None, experiment_name=exp_name, video_folder=video_folder, gradio_usage=True)
 summarizer = Summarizer('',exp_name, gradio_usage=True)
+openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def get_length(filename):
     """
@@ -86,7 +88,8 @@ def cut_long_video(video_path):
             stderr=subprocess.STDOUT)
     return cut_video_path
 
-def predict(message, history, last_video):
+
+def predict(message, history, last_video, italian_traduction):
     """
     Predicts the captions and summary for a given video and user input.
 
@@ -117,16 +120,33 @@ def predict(message, history, last_video):
                 ]
         captions, csv_path_file = model.gradio_video_inference(video_path,prompt,max_length = 100)
         summary = summarizer.gradio_summarizer(captions)
-        history.append((None,summary))
-        history.append((None,'You can download the results of the inference clicking on the link below.'))
+        if italian_traduction == 'yes':
+            
+            chat_completion = openai_client.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "Traduci il seguente testo in inglese e nella risposta restituisci solo la traduzione: " + summary},
+                ]
+            )
+            summary = chat_completion.choices[0].message.content
+            history.append((None,summary))
+            history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
+            pass
+        else:
+            history.append((None,summary))
+            history.append((None,'You can download the results of the inference clicking on the link below.'))
         history.append((None,gr.File(csv_path_file)))
         return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
     else:
-        history.append((None,'Load a video to start the inference!'))
+        if italian_traduction == 'yes':
+            history.append((None,'Carica un video per iniziare l\'inferenza!'))
+        else:
+            history.append((None,'Load a video to start the inference!'))
         return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
     
 
-def new_multimodal_message(message,last_video,chatbot, clear_btn):
+def new_multimodal_message(message,last_video,chatbot, clear_btn, italian_traduction):
     """
     Process a new multimodal message.
     Args:
@@ -151,14 +171,20 @@ def new_multimodal_message(message,last_video,chatbot, clear_btn):
             video_duration = get_length(last_video)
             
             if int(video_duration) >= 11:
-                video_too_long_response = 'Video is too long! Only the first 10 seconds of video will be analyzed. Limit to 10 seconds next time.\n\n'
+                if italian_traduction == 'yes':
+                    video_too_long_response = 'Video troppo lungo! Solo i primi 10 secondi del video saranno analizzati. Limitarsi a 10 secondi la prossima volta.\n\n'
+                else:
+                    video_too_long_response = 'Video is too long! Only the first 10 seconds of video will be analyzed. Limit to 10 seconds next time.\n\n'
                 last_video = cut_long_video(last_video)
                 chatbot.append((gr.Video(last_video),None))
                 chatbot.append((None,video_too_long_response))
                 return gr.MultimodalTextbox(interactive=False),last_video, chatbot, gr.ClearButton(components=[chatbot, last_video], interactive=False)
             elif int(video_duration) < 2:
                 # do not save a video too short
-                chatbot.append((None,'Video is too short. Input a video of at least 2 seconds.'))
+                if italian_traduction == 'yes':
+                    chatbot.append((None,'Video troppo corto. Inserire un video di almeno 2 secondi.'))
+                else:
+                    chatbot.append((None,'Video is too short. Input a video of at least 2 seconds.'))
                 last_video = ''
                 return gr.MultimodalTextbox(interactive=False),last_video, chatbot, gr.ClearButton(components=[chatbot, last_video], interactive=True)
             else:
@@ -166,14 +192,17 @@ def new_multimodal_message(message,last_video,chatbot, clear_btn):
                 return gr.MultimodalTextbox(interactive=False),last_video,chatbot, gr.ClearButton(components=[chatbot, last_video], interactive=False)
         else:
             # do not save a video too short
-            chatbot.append((None,'Error during the conversion.'))
+            if italian_traduction == 'yes':
+                chatbot.append((None,'Errore durante la conversione.'))
+            else:
+                chatbot.append((None,'Error during the conversion.'))
             last_video = ''
             return gr.MultimodalTextbox(interactive=False),last_video, chatbot, gr.ClearButton(components=[chatbot, last_video], interactive=True)
     return gr.MultimodalTextbox(interactive=False),last_video, chatbot, gr.ClearButton(components=[chatbot, last_video], interactive=False)
 
 
 
-def main(user, password):
+def main(user, password, italian_traduction):
     with gr.Blocks(fill_height=True) as demo:
         last_video = gr.State('')
 
@@ -181,8 +210,8 @@ def main(user, password):
         chatbot = gr.Chatbot(height="70vh")
         clear_btn = gr.ClearButton(components=[chatbot, last_video], render=True)
         msg = gr.MultimodalTextbox(interactive=True)
-        chat_msg = msg.submit(new_multimodal_message,[msg,last_video,chatbot, clear_btn],[msg,last_video, chatbot, clear_btn])
-        bot_msg = chat_msg.then(predict,inputs=[msg, chatbot, last_video], outputs=[msg,chatbot, clear_btn])
+        chat_msg = msg.submit(new_multimodal_message,[msg,last_video,chatbot, clear_btn, italian_traduction],[msg,last_video, chatbot, clear_btn])
+        bot_msg = chat_msg.then(predict,inputs=[msg, chatbot, last_video, italian_traduction], outputs=[msg,chatbot, clear_btn])
 
     # msg = gr.MultimodalTextbox(interactive=True)
     # msg.submit(predict,inputs=[msg,chatbot,last_video],outputs=[msg,chatbot,last_video])
@@ -201,9 +230,15 @@ if __name__ == "__main__":
                    help=('Username to use in authentication'))
     p.add_argument('--password', type=str, default='',
                    help=('Password to use in authentication.'))
+    p.add_argument('--italian_traduction', type=str, default='no', choices=['yes','no'],)
     
     args = p.parse_args()
 
     user = args.user
-    password = args.password
-    main(user,password)
+    password = args.passwor
+    if os.getenv('OPENAI_API_KEY') is None:
+        print('Please set the OPENAI_API_KEY environment variable.')
+        italian_traduction = 'no'
+    else:
+        italian_traduction = args.italian_traduction
+    main(user,password,italian_traduction)
