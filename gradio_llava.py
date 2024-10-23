@@ -121,18 +121,24 @@ def predict(message, history, last_video, italian_traduction):
         captions, csv_path_file = model.gradio_video_inference(video_path,prompt,max_length = 100)
         summary = summarizer.gradio_summarizer(captions)
         if italian_traduction == 'yes':
-            
-            chat_completion = openai_client.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": "Traduci il seguente testo in inglese e nella risposta restituisci solo la traduzione: " + summary},
-                ]
-            )
-            summary = chat_completion.choices[0].message.content
-            history.append((None,summary))
-            history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
-            pass
+            try:
+                chat_completion = openai_client.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": "Traduci il seguente testo in inglese e nella risposta restituisci solo la traduzione: " + summary},
+                    ]
+                )
+                summary_traduction = chat_completion.choices[0].message.content
+                history.append((None,summary_traduction))
+                history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
+                history.append((None,gr.File(csv_path_file)))
+            except openai.OpenAIError as e:
+                history.append((None,'Errore durante la traduzione: ' + str(e)))
+                history.append((None,'In output la versione non tradotta:'))
+                history.append((None,summary))
+                history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
+                history.append((None,gr.File(csv_path_file)))
         else:
             history.append((None,summary))
             history.append((None,'You can download the results of the inference clicking on the link below.'))
