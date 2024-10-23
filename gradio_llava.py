@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 # Definition of some parameters that are required for the inference
 method_name = 'llava_next_video'
-device_id = 0
+device_id = 1
 exp_name = 'gradio'
 video_folder = ''
 
@@ -89,68 +89,74 @@ def cut_long_video(video_path):
             stderr=subprocess.STDOUT)
     return cut_video_path
 
+class Predictor():
+    
+    def __init__(self, openai_client=None):
+        self.openai_client = openai_client
 
-def predict(message, history, last_video, italian_traduction, openai_client=None):
-    """
-    Predicts the captions and summary for a given video and user input.
 
-    Parameters:
-    - message (dict): A dictionary containing the user input and video path.
-                      Format: {"text": "user input", "files": ["file_path1", "file_path2", ...]}
-    - history (list): A list containing the history of user inputs and generated summaries.
-    - last_video (str): The path of the last video that was processed.
+    def predict(self, message, history, last_video, italian_traduction):
+        """
+        Predicts the captions and summary for a given video and user input.
 
-    Returns:
-    - gr.MultimodalTextbox: A Gradio MultimodalTextbox component.
-    - history (list): The updated history list.
-    - gr.ClearButton: A Gradio ClearButton component.
-    """
-    ...
-    # for multimodal: {"text": "user input", "files": ["file_path1", "file_path2", ...]}
-    if last_video != '':
-        video_path = last_video
-        prompt = [
-                    {
+        Parameters:
+        - message (dict): A dictionary containing the user input and video path.
+                        Format: {"text": "user input", "files": ["file_path1", "file_path2", ...]}
+        - history (list): A list containing the history of user inputs and generated summaries.
+        - last_video (str): The path of the last video that was processed.
 
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "{}".format(message['text'])},
-                            {"type": "video"},
-                            ],
-                    },
-                ]
-        captions, csv_path_file = model.gradio_video_inference(video_path,prompt,max_length = 100)
-        summary = summarizer.gradio_summarizer(captions)
-        if italian_traduction == 'yes':
-            try:
-                chat_completion = openai_client.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "Traduci il seguente testo in inglese e nella risposta restituisci solo la traduzione: " + summary},
+        Returns:
+        - gr.MultimodalTextbox: A Gradio MultimodalTextbox component.
+        - history (list): The updated history list.
+        - gr.ClearButton: A Gradio ClearButton component.
+        """
+        ...
+        # for multimodal: {"text": "user input", "files": ["file_path1", "file_path2", ...]}
+        if last_video != '':
+            video_path = last_video
+            prompt = [
+                        {
+
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "{}".format(message['text'])},
+                                {"type": "video"},
+                                ],
+                        },
                     ]
-                )
-                summary_traduction = chat_completion.choices[0].message.content
-                history.append((None,summary_traduction))
-                history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
-                history.append((None,gr.File(csv_path_file)))
-            except openai.OpenAIError as e:
-                history.append((None,'Errore durante la traduzione: ' + str(e)))
-                history.append((None,'In output la versione non tradotta:'))
+            captions, csv_path_file = model.gradio_video_inference(video_path,prompt,max_length = 100)
+            summary = summarizer.gradio_summarizer(captions)
+            if italian_traduction == 'yes':
+                try:
+                    prompt = "Traduci il seguente testo in inglese e nella risposta restituisci solo la traduzione: " + summary
+                    chat_completion = self.openai_client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    summary_traduction = chat_completion.choices[0].message.content
+                    history.append((None,summary_traduction))
+                    history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
+                    history.append((None,gr.File(csv_path_file)))
+                except openai.OpenAIError as e:
+                    history.append((None,'Errore durante la traduzione: ' + str(e)))
+                    history.append((None,'In output la versione non tradotta:'))
+                    history.append((None,summary))
+                    history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
+                    history.append((None,gr.File(csv_path_file)))
+            else:
                 history.append((None,summary))
-                history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
-                history.append((None,gr.File(csv_path_file)))
+                history.append((None,'You can download the results of the inference clicking on the link below.'))
+            history.append((None,gr.File(csv_path_file)))
+            return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
         else:
-            history.append((None,summary))
-            history.append((None,'You can download the results of the inference clicking on the link below.'))
-        history.append((None,gr.File(csv_path_file)))
-        return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
-    else:
-        if italian_traduction == 'yes':
-            history.append((None,'Carica un video per iniziare l\'inferenza!'))
-        else:
-            history.append((None,'Load a video to start the inference!'))
-        return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
+            if italian_traduction == 'yes':
+                history.append((None,'Carica un video per iniziare l\'inferenza!'))
+            else:
+                history.append((None,'Load a video to start the inference!'))
+            return gr.MultimodalTextbox(value=None, interactive=True),history, gr.ClearButton(components=[history, last_video], interactive=True)
     
 
 def new_multimodal_message(message,last_video,chatbot, clear_btn, italian_traduction):
@@ -209,20 +215,18 @@ def new_multimodal_message(message,last_video,chatbot, clear_btn, italian_traduc
 
 
 
-def main(user, password, italian_traduction, openai_client=None):
+def main(user, password, italian_traduction, predictor):
     with gr.Blocks(fill_height=True) as demo:
         last_video = gr.State('')
+        italian_traduction = gr.State(italian_traduction)
 
         
         chatbot = gr.Chatbot(height="70vh")
         clear_btn = gr.ClearButton(components=[chatbot, last_video], render=True)
         msg = gr.MultimodalTextbox(interactive=True)
         chat_msg = msg.submit(new_multimodal_message,[msg,last_video,chatbot, clear_btn, italian_traduction],[msg,last_video, chatbot, clear_btn])
-        bot_msg = chat_msg.then(predict,inputs=[msg, chatbot, last_video, italian_traduction, openai_client], outputs=[msg,chatbot, clear_btn])
+        bot_msg = chat_msg.then(predictor.predict,inputs=[msg, chatbot, last_video, italian_traduction], outputs=[msg,chatbot, clear_btn])
 
-    # msg = gr.MultimodalTextbox(interactive=True)
-    # msg.submit(predict,inputs=[msg,chatbot,last_video],outputs=[msg,chatbot,last_video])
-    #gr.ChatInterface(predict, multimodal=True, additional_inputs=[last_video], chatbot=chatbot,textbox=msg, retry_btn=None, undo_btn= None, clear_btn=clear_btn)
     if user != '' and password != '':
         demo.launch(share=True, auth=(user,password))
     else:
@@ -238,21 +242,22 @@ if __name__ == "__main__":
     p.add_argument('--password', type=str, default='',
                    help=('Password to use in authentication.'))
     p.add_argument('--italian_traduction', type=str, default='no', choices=['yes','no'],)
-    p.add_argument('--load_dotenv', type=str, default='.', help='Path to the .env file')
+    p.add_argument('--dotenv_path', type=str, default='.env', help='Path to the .env file')
 
     
     args = p.parse_args()
 
     user = args.user
-    password = args.passwor
+    password = args.password
     if args.italian_traduction == 'yes':
         # .env should be in the same directory as this script
-        load_dotenv(args.load_dotenv)
+        load_dotenv(args.dotenv_path)
         if os.getenv('OPENAI_API_KEY') is None:
-            print('Please set the OPENAI_API_KEY environment variable.')
+            print('Please set the OPENAI_API_KEY in the dotenv file or pass a correct dotenv path.')
             italian_traduction = 'no'
             openai_client = None
         else:
             italian_traduction = args.italian_traduction
             openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-    main(user,password,italian_traduction, openai_client)
+    predictor = Predictor(openai_client)
+    main(user,password,italian_traduction, predictor)
