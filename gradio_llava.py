@@ -139,13 +139,12 @@ class Predictor():
                     summary_traduction = chat_completion.choices[0].message.content
                     history.append((None,summary_traduction))
                     history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
-                    history.append((None,gr.File(csv_path_file)))
+                    
                 except openai.OpenAIError as e:
                     history.append((None,'Errore durante la traduzione: ' + str(e)))
                     history.append((None,'In output la versione non tradotta:'))
                     history.append((None,summary))
                     history.append((None,'Puoi fare il download dei risultati delle inferenze facendo click sul link sotto.'))
-                    history.append((None,gr.File(csv_path_file)))
             else:
                 history.append((None,summary))
                 history.append((None,'You can download the results of the inference clicking on the link below.'))
