@@ -1,4 +1,4 @@
-# \[FalcoII\] Large-Vision Models research
+# Large-Vision Models research
 
 ## Description
 
