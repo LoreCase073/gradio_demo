@@ -5,6 +5,7 @@ import subprocess
 import os
 import argparse
 import openai
+from dotenv import load_dotenv
 
 # Definition of some parameters that are required for the inference
 method_name = 'llava_next_video'
@@ -15,7 +16,7 @@ video_folder = ''
 # Creation of the model and summarizer objects
 model = LlavaNextVideo(model_type=method_name, device=device_id, model_savepath=None, output_path=None, experiment_name=exp_name, video_folder=video_folder, gradio_usage=True)
 summarizer = Summarizer('',exp_name, gradio_usage=True)
-openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
 
 def get_length(filename):
     """
@@ -89,7 +90,7 @@ def cut_long_video(video_path):
     return cut_video_path
 
 
-def predict(message, history, last_video, italian_traduction):
+def predict(message, history, last_video, italian_traduction, openai_client=None):
     """
     Predicts the captions and summary for a given video and user input.
 
@@ -208,7 +209,7 @@ def new_multimodal_message(message,last_video,chatbot, clear_btn, italian_traduc
 
 
 
-def main(user, password, italian_traduction):
+def main(user, password, italian_traduction, openai_client=None):
     with gr.Blocks(fill_height=True) as demo:
         last_video = gr.State('')
 
@@ -217,7 +218,7 @@ def main(user, password, italian_traduction):
         clear_btn = gr.ClearButton(components=[chatbot, last_video], render=True)
         msg = gr.MultimodalTextbox(interactive=True)
         chat_msg = msg.submit(new_multimodal_message,[msg,last_video,chatbot, clear_btn, italian_traduction],[msg,last_video, chatbot, clear_btn])
-        bot_msg = chat_msg.then(predict,inputs=[msg, chatbot, last_video, italian_traduction], outputs=[msg,chatbot, clear_btn])
+        bot_msg = chat_msg.then(predict,inputs=[msg, chatbot, last_video, italian_traduction, openai_client], outputs=[msg,chatbot, clear_btn])
 
     # msg = gr.MultimodalTextbox(interactive=True)
     # msg.submit(predict,inputs=[msg,chatbot,last_video],outputs=[msg,chatbot,last_video])
@@ -237,14 +238,21 @@ if __name__ == "__main__":
     p.add_argument('--password', type=str, default='',
                    help=('Password to use in authentication.'))
     p.add_argument('--italian_traduction', type=str, default='no', choices=['yes','no'],)
+    p.add_argument('--load_dotenv', type=str, default='.', help='Path to the .env file')
+
     
     args = p.parse_args()
 
     user = args.user
     password = args.passwor
-    if os.getenv('OPENAI_API_KEY') is None:
-        print('Please set the OPENAI_API_KEY environment variable.')
-        italian_traduction = 'no'
-    else:
-        italian_traduction = args.italian_traduction
-    main(user,password,italian_traduction)
+    if args.italian_traduction == 'yes':
+        # .env should be in the same directory as this script
+        load_dotenv(args.load_dotenv)
+        if os.getenv('OPENAI_API_KEY') is None:
+            print('Please set the OPENAI_API_KEY environment variable.')
+            italian_traduction = 'no'
+            openai_client = None
+        else:
+            italian_traduction = args.italian_traduction
+            openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    main(user,password,italian_traduction, openai_client)
