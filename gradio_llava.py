@@ -248,6 +248,7 @@ if __name__ == "__main__":
 
     user = args.user
     password = args.password
+    openai_client = None
     if args.italian_traduction == 'yes':
         # .env should be in the same directory as this script
         load_dotenv(args.dotenv_path)
@@ -258,5 +259,7 @@ if __name__ == "__main__":
         else:
             italian_traduction = args.italian_traduction
             openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    else:
+        italian_traduction = args.italian_traduction
     predictor = Predictor(openai_client)
     main(user,password,italian_traduction, predictor)
