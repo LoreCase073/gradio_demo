@@ -37,7 +37,7 @@ class LlavaNextVideo(BaseMultimodalMethod):
 
         # name of the model from huggingface
         model_name = "llava-hf/LLaVA-NeXT-Video-7B-DPO-hf"
-        self.processor = LlavaNextVideoProcessor.from_pretrained(model_name)
+        self.processor = LlavaNextVideoProcessor.from_pretrained(model_name, revision="00fe05a8e7214965362b0714e01a2536d85b3692")
         self.model = LlavaNextVideoForConditionalGeneration.from_pretrained(model_name, pad_token_id=self.processor.tokenizer.eos_token_id, quantization_config=quantization_config, device_map="auto")
         
 
